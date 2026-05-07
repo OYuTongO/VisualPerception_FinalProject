@@ -69,7 +69,7 @@ finalProject/
 - [x] 编写 `requirements.txt`
 - [x] 编写 `README.md`（含环境安装步骤）
 - [x] 创建 `.gitignore`（排除 `data/raw/`、`__pycache__/`、`.pkl` 等）
-- [ ] 验证：`python -c "import cv2, mediapipe, pygame, sklearn; print('OK')"` 通过
+- [x] 验证：`python -c "import cv2, mediapipe, pygame, sklearn; print('OK')"` 通过
 
 **产出物：** 可克隆、可安装依赖的空项目骨架
 
