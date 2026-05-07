@@ -130,12 +130,16 @@ finalProject/
 
 **脚本：** `src/extract_landmarks.py`
 
-- [ ] 遍历 `data/raw/` 中每张图片
-- [ ] 用 MediaPipe Hands 提取 21 个关键点（共 42 个 float：x0,y0,x1,y1,...,x20,y20）
-- [ ] 归一化坐标（相对于手部边界框）
-- [ ] 写入 `data/landmarks.csv`，格式：`label, x0, y0, x1, y1, ..., x20, y20`
-- [ ] 处理无法检测到手的图片（跳过并记录数量）
-- [ ] 打印统计：各字母成功提取数量
+- [x] 遍历 `data/raw/` 中每张图片
+- [x] 用 MediaPipe Hands 提取 21 个关键点（共 42 个 float：x0,y0,x1,y1,...,x20,y20）
+- [x] 归一化坐标（相对于手部边界框）
+- [x] 写入 `data/landmarks.csv`，格式：`label, x0, y0, x1, y1, ..., x20, y20`
+- [x] 处理无法检测到手的图片（跳过并记录数量）
+- [x] 打印统计：各字母成功提取数量
+
+**结果：** 57,339 条样本，24 个字母类别，无缺失值
+
+**注：** MediaPipe 0.10.35 已移除 `mp.solutions` API，改用 Tasks API（需 `model/hand_landmarker.task`）
 
 **关键点说明：** MediaPipe 输出坐标已归一化至 [0,1]（相对图片尺寸），需进一步相对手部边界框归一化以提升平移鲁棒性
 
@@ -281,7 +285,7 @@ finalProject/
 
 ## 当前阶段
 
-> **正在进行：Phase 2 — 关键点提取**
+> **正在进行：Phase 3 — 模型训练**
 > 上次更新：2025-05-07
 
 ---
