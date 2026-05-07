@@ -27,12 +27,14 @@ class Recognizer:
         self._landmarker = mp_vision.HandLandmarker.create_from_options(options)
         self._raw_landmarks = None          # 原始 landmark 对象列表，供外部绘制骨架
         self._smooth_buf = collections.deque(maxlen=SMOOTH_FRAMES)
+        self._last_confirmed = None         # 上一次确认的字母，用于序列检测
 
     def predict(self, frame: np.ndarray):
         """
         输入 BGR numpy 图像，返回 (letter, confidence)。
-        未检测到手或置信度不足时返回 (None, 0.0)。
-        连续 SMOOTH_FRAMES 帧一致才输出结果，避免抖动。
+        - 未检测到手或置信度不足时返回 (None, 0.0)
+        - 连续 SMOOTH_FRAMES 帧一致才确认，且只在字母切换时触发一次
+        - 用户收回手再伸出即可重复输入同一字母
         """
         self._raw_landmarks = None
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -40,7 +42,9 @@ class Recognizer:
         result = self._landmarker.detect(mp_img)
 
         if not result.hand_landmarks:
+            # 手离开画面：重置状态，允许下次重新输入同一字母
             self._smooth_buf.clear()
+            self._last_confirmed = None
             return None, 0.0
 
         self._raw_landmarks = result.hand_landmarks[0]
@@ -55,12 +59,19 @@ class Recognizer:
             return None, confidence
 
         self._smooth_buf.append(letter)
-        # 只有缓冲区满且全部一致时才输出
-        if (len(self._smooth_buf) == SMOOTH_FRAMES
-                and len(set(self._smooth_buf)) == 1):
+
+        # 缓冲区未满或不一致：过渡中，重置上一次确认（允许切换）
+        if len(self._smooth_buf) < SMOOTH_FRAMES or len(set(self._smooth_buf)) != 1:
+            self._last_confirmed = None
+            return None, confidence
+
+        # 缓冲区满且一致：已稳定识别到某个字母
+        # 只有与上次确认不同时才触发，避免同一手势重复计入
+        if letter != self._last_confirmed:
+            self._last_confirmed = letter
             return letter, confidence
 
-        return None, confidence
+        return None, confidence  # 同一手势持续中，不重复触发
 
     def get_landmarks(self):
         """返回原始 landmark 列表（mediapipe NormalizedLandmark），供 Pygame 绘制骨架。"""
