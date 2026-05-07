@@ -170,16 +170,18 @@ finalProject/
 
 **脚本：** `src/recognizer.py`
 
-- [ ] 封装 `Recognizer` 类，接口如下：
+- [x] 封装 `Recognizer` 类，接口如下：
   ```python
   rec = Recognizer(model_path="model/asl_classifier.pkl")
   letter, confidence = rec.predict(frame)  # frame: numpy BGR image
   landmarks = rec.get_landmarks()          # 用于 Pygame 绘制骨架
   ```
-- [ ] 内部流程：BGR→RGB → MediaPipe → 归一化 → 模型推理
-- [ ] 无手检测时返回 `(None, 0.0)`
-- [ ] 置信度低于阈值（如 0.6）时返回 `(None, conf)`
-- [ ] 独立测试：运行后弹出 OpenCV 窗口显示识别结果（命令行测试用）
+- [x] 内部流程：BGR→RGB → MediaPipe → 归一化 → 模型推理
+- [x] 无手检测时返回 `(None, 0.0)`
+- [x] 置信度低于阈值（如 0.6）时返回 `(None, conf)`
+- [x] 独立测试：运行后弹出 OpenCV 窗口显示识别结果（命令行测试用）
+
+**结果：** 检测到手的字母置信度 99-100%，平滑缓冲 5 帧，`HAND_CONNECTIONS` 提供 23 条骨架连接供 Pygame 绘制
 
 ---
 
@@ -287,7 +289,7 @@ finalProject/
 
 ## 当前阶段
 
-> **正在进行：Phase 4 — 实时识别模块**
+> **正在进行：Phase 5 — Pygame 主框架 + 吉祥物**
 > 上次更新：2025-05-07
 
 ---
