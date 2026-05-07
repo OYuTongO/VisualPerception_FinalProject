@@ -1,0 +1,31 @@
+# 数据集（体积太大）
+data/raw/
+
+# 模型文件（通过其他方式分发）
+model/*.pkl
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+.venv/
+
+# Kaggle
+kaggle.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.log
+score.json
+
+# Claude Code 本地配置
+.claude/
