@@ -151,13 +151,15 @@ finalProject/
 **脚本：** `src/train_model.py`
 **模型选择：** `RandomForestClassifier`（备选 `MLPClassifier`）
 
-- [ ] 读取 `data/landmarks.csv`
-- [ ] 划分训练集/测试集（80/20）
-- [ ] 训练 `RandomForestClassifier(n_estimators=100, random_state=42)`
-- [ ] 在测试集上评估（accuracy、confusion matrix）
-- [ ] 若准确率 < 90%，切换至 `MLPClassifier` 或调参
-- [ ] 保存模型至 `model/asl_classifier.pkl`
-- [ ] 打印各字母 precision/recall（查找弱项字母）
+- [x] 读取 `data/landmarks.csv`
+- [x] 划分训练集/测试集（80/20）
+- [x] 训练 `RandomForestClassifier(n_estimators=100, random_state=42)`
+- [x] 在测试集上评估（accuracy、confusion matrix）
+- [x] 若准确率 < 90%，切换至 `MLPClassifier` 或调参
+- [x] 保存模型至 `model/asl_classifier.pkl`
+- [x] 打印各字母 precision/recall（查找弱项字母）
+
+**结果：** 测试集准确率 **98.70%**，最弱字母 N(94.4%) 和 M(95.4%)
 
 **产出物：** `model/asl_classifier.pkl`，测试集准确率报告
 
@@ -285,7 +287,7 @@ finalProject/
 
 ## 当前阶段
 
-> **正在进行：Phase 3 — 模型训练**
+> **正在进行：Phase 4 — 实时识别模块**
 > 上次更新：2025-05-07
 
 ---
