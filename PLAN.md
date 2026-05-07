@@ -65,10 +65,10 @@ finalProject/
 ### Phase 0 — 项目初始化
 > 目标：建立可运行的开发环境，所有人都能跑起来
 
-- [ ] 创建 GitHub 仓库，推送初始结构
-- [ ] 编写 `requirements.txt`
-- [ ] 编写 `README.md`（含环境安装步骤）
-- [ ] 创建 `.gitignore`（排除 `data/raw/`、`__pycache__/`、`.pkl` 等）
+- [x] 创建 GitHub 仓库，推送初始结构
+- [x] 编写 `requirements.txt`
+- [x] 编写 `README.md`（含环境安装步骤）
+- [x] 创建 `.gitignore`（排除 `data/raw/`、`__pycache__/`、`.pkl` 等）
 - [ ] 验证：`python -c "import cv2, mediapipe, pygame, sklearn; print('OK')"` 通过
 
 **产出物：** 可克隆、可安装依赖的空项目骨架
@@ -223,7 +223,7 @@ finalProject/
 
 ## 当前阶段
 
-> **正在进行：Phase 0 — 项目初始化**
+> **正在进行：Phase 1 — 数据集获取**
 > 上次更新：2025-05-07
 
 ---
