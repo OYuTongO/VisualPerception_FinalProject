@@ -113,11 +113,13 @@ finalProject/
 ### Phase 1 — 数据集获取
 > 目标：下载 Kaggle ASL 数据集到本地 `data/raw/`
 
-- [ ] 安装 Kaggle CLI：`pip install kaggle`
-- [ ] 配置 `kaggle.json` API Token（参考 README）
-- [ ] 下载数据集：`kaggle datasets download grassknoted/asl-alphabet`
-- [ ] 解压至 `data/raw/asl_alphabet_train/`
-- [ ] 确认目录结构：26个字母子文件夹，每文件夹约3000张图
+- [x] 安装 Kaggle CLI：`pip install kaggle`
+- [x] 配置 `kaggle.json` API Token（参考 README）
+- [x] 下载数据集：`kaggle datasets download grassknoted/asl-alphabet`
+- [x] 解压至 `data/raw/asl_alphabet_train/`
+- [x] 确认目录结构：26个字母子文件夹，每文件夹约3000张图
+
+**实际路径：** `data/raw/asl_alphabet_train/asl_alphabet_train/<letter>/`（含多一层同名子目录）
 
 **注：** `data/raw/` 不上传 GitHub，仅 `landmarks.csv` 上传
 
@@ -279,7 +281,7 @@ finalProject/
 
 ## 当前阶段
 
-> **正在进行：Phase 1 — 数据集获取**
+> **正在进行：Phase 2 — 关键点提取**
 > 上次更新：2025-05-07
 
 ---
