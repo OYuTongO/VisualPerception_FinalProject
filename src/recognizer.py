@@ -10,7 +10,7 @@ from mediapipe.tasks.python import vision as mp_vision
 MODEL_PATH      = os.path.join("model", "asl_classifier.pkl")
 LANDMARKER_PATH = os.path.join("model", "hand_landmarker.task")
 CONFIDENCE_THRESHOLD = 0.6
-SMOOTH_FRAMES        = 5   # 连续N帧一致才确认结果
+SMOOTH_FRAMES        = 3   # 连续N帧一致才确认结果
 
 
 class Recognizer:
@@ -132,6 +132,7 @@ if __name__ == "__main__":
 
     print("按 Q 退出")
     with Recognizer() as rec:
+        confirmed_letter = None
         while True:
             ret, frame = cap.read()
             if not ret:
@@ -140,11 +141,25 @@ if __name__ == "__main__":
             letter, conf = rec.predict(frame)
             draw_landmarks(frame, rec.get_landmarks())
 
-            label = f"{letter}  {conf:.0%}" if letter else (
-                f"detecting...  {conf:.0%}" if conf > 0 else "no hand"
-            )
-            cv2.putText(frame, label, (20, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
+            # 实时原始预测（直接看 buffer 里当前票数最多的）
+            raw = rec._smooth_buf[-1] if rec._smooth_buf else None
+
+            if letter:
+                confirmed_letter = letter
+
+            # 第一行：实时预测（灰白色）
+            if raw:
+                cv2.putText(frame, f"now: {raw}  {conf:.0%}", (20, 55),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.4, (200, 200, 200), 3)
+            elif conf == 0.0:
+                cv2.putText(frame, "no hand", (20, 55),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.4, (100, 100, 100), 3)
+
+            # 第二行：已确认的字母（亮绿色，大字）
+            if confirmed_letter:
+                cv2.putText(frame, f"confirmed: {confirmed_letter}", (20, 120),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.8, (0, 255, 0), 4)
+
             cv2.imshow("ASL Recognizer - press Q to quit", frame)
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
