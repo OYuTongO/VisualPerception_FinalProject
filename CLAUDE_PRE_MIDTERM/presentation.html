@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASL Gesture Recognition Learning Game — 期中汇报</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #f78166;
+    --accent4: #d2a8ff;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --border: #30363d;
+    --glow: 0 0 20px rgba(88,166,255,0.3);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── Slides Container ── */
+  .slides-wrapper {
+    width: 100%;
+    height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 48px 72px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateY(20px);
+  }
+
+  .slide.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+  }
+
+  /* ── Navigation ── */
+  .nav {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 100;
+    background: rgba(22,27,34,0.9);
+    border: 1px solid var(--border);
+    border-radius: 48px;
+    padding: 12px 24px;
+    backdrop-filter: blur(12px);
+  }
+
+  .nav button {
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 20px;
+    padding: 4px 12px;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+
+  .nav button:hover { background: var(--surface2); }
+  .nav button:disabled { opacity: 0.3; cursor: default; }
+
+  .slide-counter {
+    color: var(--muted);
+    font-size: 13px;
+    min-width: 56px;
+    text-align: center;
+  }
+
+  .progress-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .dot.active {
+    background: var(--accent);
+    width: 18px;
+    border-radius: 4px;
+  }
+
+  /* ── Keyboard hint ── */
+  .key-hint {
+    position: fixed;
+    bottom: 32px;
+    right: 40px;
+    color: var(--muted);
+    font-size: 11px;
+    z-index: 100;
+  }
+
+  /* ─────────────────────────────────────
+     SLIDE COMPONENTS
+  ───────────────────────────────────── */
+
+  /* Tag / chip */
+  .tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tag-blue  { background: rgba(88,166,255,0.15); color: var(--accent); border: 1px solid rgba(88,166,255,0.3); }
+  .tag-green { background: rgba(63,185,80,0.15);  color: var(--accent2); border: 1px solid rgba(63,185,80,0.3); }
+  .tag-red   { background: rgba(247,129,102,0.15); color: var(--accent3); border: 1px solid rgba(247,129,102,0.3); }
+  .tag-purple{ background: rgba(210,168,255,0.15); color: var(--accent4); border: 1px solid rgba(210,168,255,0.3); }
+
+  /* Section title */
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+
+  /* Headline */
+  h1 { font-size: clamp(32px, 5vw, 56px); font-weight: 700; line-height: 1.1; }
+  h2 { font-size: clamp(22px, 3vw, 36px); font-weight: 700; line-height: 1.2; }
+  h3 { font-size: 18px; font-weight: 600; }
+
+  /* Subtitle / body */
+  .subtitle { font-size: clamp(14px, 1.8vw, 18px); color: var(--muted); line-height: 1.6; }
+  .body-text { font-size: 15px; color: var(--text); line-height: 1.7; }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+  }
+
+  /* Grid helpers */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; width: 100%; }
+
+  /* ── SLIDE 1: Title ── */
+  .slide-1 {
+    background:
+      radial-gradient(ellipse 60% 50% at 70% 30%, rgba(88,166,255,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 20% 70%, rgba(63,185,80,0.06) 0%, transparent 60%),
+      var(--bg);
+    text-align: center;
+    gap: 20px;
+  }
+
+  .slide-1 .title-eyebrow {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .slide-1 h1 {
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, var(--accent4) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .slide-1 .meta {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .slide-1 .meta span {
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* hand animation */
+  .hand-icon {
+    font-size: 64px;
+    animation: wave 2s ease-in-out infinite;
+    display: inline-block;
+  }
+
+  @keyframes wave {
+    0%,100% { transform: rotate(-10deg); }
+    50%      { transform: rotate(15deg); }
+  }
+
+  /* ── SLIDE 2: Problem ── */
+  .slide-2 {
+    background:
+      radial-gradient(ellipse 50% 60% at 90% 20%, rgba(247,129,102,0.07) 0%, transparent 60%),
+      var(--bg);
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .stat-card .stat-num {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-card .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.4;
+  }
+
+  /* ── SLIDE 3: Solution ── */
+  .slide-3 {
+    background:
+      radial-gradient(ellipse 60% 50% at 10% 50%, rgba(63,185,80,0.07) 0%, transparent 65%),
+      var(--bg);
+  }
+
+  .solution-row {
+    display: flex;
+    align-items: stretch;
+    gap: 20px;
+    width: 100%;
+  }
+
+  .solution-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .arrow-box {
+    font-size: 28px;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* ── SLIDE 4: Tech Stack ── */
+  .slide-4 {
+    background:
+      radial-gradient(ellipse 55% 55% at 80% 80%, rgba(210,168,255,0.07) 0%, transparent 65%),
+      var(--bg);
+  }
+
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    width: 100%;
+    margin-bottom: 24px;
+  }
+
+  .pipeline-step {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+    position: relative;
+  }
+
+  .pipeline-step .step-icon { font-size: 24px; display: block; margin-bottom: 6px; }
+  .pipeline-step .step-name { font-size: 12px; font-weight: 600; color: var(--text); }
+  .pipeline-step .step-tech { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+  .pipeline-arrow {
+    width: 28px;
+    text-align: center;
+    color: var(--accent);
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .tech-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .tech-table tr:not(:last-child) td {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tech-table td {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .tech-table td:first-child {
+    color: var(--muted);
+    width: 120px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .tech-table td:last-child {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* ── SLIDE 5: Data & Model ── */
+  .slide-5 {
+    background:
+      radial-gradient(ellipse 50% 60% at 15% 20%, rgba(88,166,255,0.08) 0%, transparent 65%),
+      var(--bg);
+  }
+
+  .metric-row {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .metric-card {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .metric-big {
+    font-size: 40px;
+    font-weight: 700;
+    color: var(--accent2);
+    line-height: 1;
+    display: block;
+  }
+
+  .metric-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .progress-bar-wrap {
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 1s ease;
+  }
+
+  /* ── SLIDE 6: System Architecture ── */
+  .slide-6 {
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(88,166,255,0.06) 0%, transparent 60%),
+      var(--bg);
+  }
+
+  .arch-diagram {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .arch-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .arch-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 20px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 120px;
+  }
+
+  .arch-box.highlighted {
+    border-color: var(--accent);
+    background: rgba(88,166,255,0.08);
+  }
+
+  .arch-box.green {
+    border-color: var(--accent2);
+    background: rgba(63,185,80,0.08);
+  }
+
+  .arch-box.purple {
+    border-color: var(--accent4);
+    background: rgba(210,168,255,0.08);
+  }
+
+  .arch-icon { font-size: 20px; display: block; margin-bottom: 4px; }
+  .arch-sub  { font-size: 10px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+
+  .arch-arrow { color: var(--muted); font-size: 16px; }
+
+  /* ── SLIDE 7: Game Modes ── */
+  .slide-7 {
+    background:
+      radial-gradient(ellipse 55% 50% at 85% 85%, rgba(63,185,80,0.07) 0%, transparent 65%),
+      var(--bg);
+  }
+
+  .mode-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mode-card .mode-icon { font-size: 32px; }
+  .mode-card .mode-title { font-size: 16px; font-weight: 700; }
+  .mode-card .mode-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  .feature-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .feature-list li {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .feature-list li::before {
+    content: '›';
+    color: var(--accent);
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* ── SLIDE 8: Mascot ── */
+  .slide-8 {
+    background:
+      radial-gradient(ellipse 50% 60% at 20% 60%, rgba(210,168,255,0.08) 0%, transparent 65%),
+      var(--bg);
+  }
+
+  /* SVG mascot canvas inside slide */
+  .mascot-showcase {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .mascot-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .mascot-label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ── SLIDE 9: Progress ── */
+  .slide-9 {
+    background:
+      radial-gradient(ellipse 60% 50% at 60% 10%, rgba(63,185,80,0.07) 0%, transparent 60%),
+      var(--bg);
+  }
+
+  .phase-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .phase-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+  }
+
+  .phase-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    width: 60px;
+    flex-shrink: 0;
+  }
+
+  .phase-name {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .phase-bar-wrap {
+    width: 140px;
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 5px;
+    flex-shrink: 0;
+  }
+
+  .phase-bar {
+    height: 100%;
+    border-radius: 4px;
+  }
+
+  .bar-done    { background: var(--accent2); }
+  .bar-partial { background: var(--accent); }
+  .bar-todo    { background: var(--border); }
+
+  .phase-status {
+    font-size: 11px;
+    width: 52px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* ── SLIDE 10: Roadmap ── */
+  .slide-10 {
+    background:
+      radial-gradient(ellipse 60% 55% at 50% 100%, rgba(88,166,255,0.07) 0%, transparent 60%),
+      var(--bg);
+  }
+
+  .timeline {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    position: relative;
+    margin-bottom: 28px;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    top: 28px;
+    left: 60px;
+    right: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent), var(--accent4));
+  }
+
+  .tl-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    padding-top: 0;
+  }
+
+  .tl-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 3px solid;
+    background: var(--bg);
+    z-index: 1;
+    margin-top: 20px;
+  }
+
+  .tl-dot.done   { border-color: var(--accent2); background: var(--accent2); }
+  .tl-dot.now    { border-color: var(--accent);  box-shadow: 0 0 12px rgba(88,166,255,0.6); }
+  .tl-dot.future { border-color: var(--border); }
+
+  .tl-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+
+  .tl-item.now .tl-label { color: var(--accent); }
+
+  .cta-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+  }
+
+  .cta-card {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .cta-card .cta-icon { font-size: 28px; display: block; margin-bottom: 8px; }
+  .cta-card .cta-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .cta-card .cta-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<div class="slides-wrapper">
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 1 — TITLE
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-1 active" id="slide-1">
+    <div class="title-eyebrow">
+      <span class="tag tag-blue">视觉感知 · 期中汇报</span>
+      <span class="tag tag-green">Proposal</span>
+    </div>
+
+    <div class="hand-icon">🤟</div>
+
+    <h1>ASL Gesture<br>Learning Game</h1>
+
+    <p class="subtitle" style="max-width:620px;">
+      基于计算机视觉的美式手语字母实时识别与互动学习游戏<br>
+      Computer Vision · MediaPipe · Real-time Recognition
+    </p>
+
+    <div class="meta">
+      <span>📚 华东师范大学 · 视觉感知课程</span>
+      <span>📅 2025</span>
+      <span>🔬 期中 Proposal 展示</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 2 — PROBLEM & MOTIVATION
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-2" id="slide-2">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:28px;">
+
+      <div>
+        <div class="section-label">Background & Motivation</div>
+        <h2>为什么做这个项目？</h2>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <span class="stat-num">7,200万+</span>
+          <span class="stat-label">全球聋哑人口<br>依赖手语沟通</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num">26</span>
+          <span class="stat-label">ASL 字母手势<br>（J、Z 为动态手势）</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num">∞</span>
+          <span class="stat-label">传统学习方式<br>缺乏实时反馈</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="color:var(--accent3); margin-bottom:10px;">⚠ 现有问题</h3>
+          <ul style="list-style:none; display:flex; flex-direction:column; gap:8px;">
+            <li class="body-text">· 手语学习门槛高，缺乏即时纠错反馈</li>
+            <li class="body-text">· 传统教学依赖线下老师，成本高昂</li>
+            <li class="body-text">· 现有 App 功能单一，缺乏游戏化激励</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="color:var(--accent2); margin-bottom:10px;">✓ 我们的方向</h3>
+          <ul style="list-style:none; display:flex; flex-direction:column; gap:8px;">
+            <li class="body-text">· 摄像头实时识别，零延迟视觉反馈</li>
+            <li class="body-text">· 游戏化单词拼写，趣味学习闭环</li>
+            <li class="body-text">· 纯 Python 实现，普通笔记本即可运行</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 3 — SOLUTION OVERVIEW
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-3" id="slide-3">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:24px;">
+
+      <div>
+        <div class="section-label">Solution Overview</div>
+        <h2>整体思路：看手 → 识字母 → 玩游戏</h2>
+      </div>
+
+      <div class="solution-row">
+        <div class="card" style="width:220px; flex-shrink:0;">
+          <div style="font-size:36px; text-align:center; margin-bottom:12px;">📷</div>
+          <h3 style="text-align:center; margin-bottom:8px;">输入</h3>
+          <p class="subtitle" style="font-size:12px; text-align:center;">普通 USB/内置摄像头<br>实时视频流</p>
+        </div>
+
+        <div class="arrow-box">→</div>
+
+        <div class="solution-center">
+          <div class="card" style="width:100%; text-align:center;">
+            <div style="font-size:32px; margin-bottom:8px;">🤖</div>
+            <h3>核心 CV 管线</h3>
+            <p class="subtitle" style="font-size:12px; margin-top:6px;">
+              MediaPipe 提取 21 个手部关键点<br>
+              → 边界框归一化 → 分类器推理
+            </p>
+          </div>
+          <div class="card" style="width:100%; text-align:center;">
+            <div style="font-size:32px; margin-bottom:8px;">🛡</div>
+            <h3>5 帧平滑 · 置信度过滤</h3>
+            <p class="subtitle" style="font-size:12px; margin-top:6px;">
+              连续 3 帧一致才确认输出<br>
+              置信度 &lt; 0.6 则静默等待
+            </p>
+          </div>
+        </div>
+
+        <div class="arrow-box">→</div>
+
+        <div class="card" style="width:220px; flex-shrink:0; text-align:center;">
+          <div style="font-size:36px; margin-bottom:12px;">🎮</div>
+          <h3 style="margin-bottom:8px;">游戏界面</h3>
+          <p class="subtitle" style="font-size:12px;">
+            Pygame 渲染<br>吉祥物 · 计分 · 排行榜
+          </p>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <span class="tag tag-blue">OpenCV</span>
+        <span class="tag tag-green">MediaPipe Hands</span>
+        <span class="tag tag-purple">RandomForest</span>
+        <span class="tag tag-blue">Pygame</span>
+        <span class="tag tag-green">scikit-learn</span>
+        <span class="tag tag-red">Python 3.10+</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 4 — TECH STACK & PIPELINE
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-4" id="slide-4">
+    <div style="width:100%; max-width:960px; display:flex; flex-direction:column; gap:24px;">
+
+      <div>
+        <div class="section-label">Technical Pipeline</div>
+        <h2>端到端处理流程</h2>
+      </div>
+
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <span class="step-icon">🖼</span>
+          <div class="step-name">图像采集</div>
+          <div class="step-tech">OpenCV VideoCapture</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">✋</span>
+          <div class="step-name">手部检测</div>
+          <div class="step-tech">MediaPipe HandLandmarker</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">📐</span>
+          <div class="step-name">关键点归一化</div>
+          <div class="step-tech">21 pts → 42-dim vector</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">🌲</span>
+          <div class="step-name">分类推理</div>
+          <div class="step-tech">RandomForestClassifier</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">🔁</span>
+          <div class="step-name">帧平滑</div>
+          <div class="step-tech">3-frame majority vote</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">🎮</span>
+          <div class="step-name">游戏逻辑</div>
+          <div class="step-tech">Pygame Scene Manager</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="margin-bottom:14px; color:var(--accent);">技术选型依据</h3>
+          <table class="tech-table">
+            <tr><td>视觉</td><td>MediaPipe Tasks API（0.10.35+）</td></tr>
+            <tr><td>模型</td><td>RandomForest — 速度快，无需 GPU</td></tr>
+            <tr><td>界面</td><td>Pygame — 跨平台，零依赖渲染</td></tr>
+            <tr><td>数据</td><td>Kaggle ASL Alphabet（87,000 张）</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:14px; color:var(--accent4);">关键设计决策</h3>
+          <ul class="feature-list" style="gap:10px;">
+            <li>MediaPipe 0.10+ 移除了 mp.solutions API，改用 Tasks API + .task 模型文件</li>
+            <li>坐标二次归一化到手部 Bounding Box，消除位置和尺度干扰</li>
+            <li>排除 J、Z（动态手势），仅识别 24 个静态字母</li>
+            <li>摄像头帧在子线程采集，Pygame 主循环保持 30FPS</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 5 — DATA & MODEL RESULTS
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-5" id="slide-5">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:24px;">
+
+      <div>
+        <div class="section-label">Data & Model Performance</div>
+        <h2>数据集 · 训练结果</h2>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-card">
+          <span class="metric-big">57,339</span>
+          <div class="metric-label">提取成功的关键点样本</div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:95%"></div></div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-big">24</span>
+          <div class="metric-label">字母类别（排除 J、Z）</div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:100%"></div></div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-big" style="color:var(--accent2);">98.70%</span>
+          <div class="metric-label">测试集准确率（80/20 split）</div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:98.7%"></div></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="margin-bottom:16px;">模型对比</h3>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="font-size:13px;">RandomForest (n=100)</span>
+                <span style="font-size:13px; color:var(--accent2); font-weight:700;">98.70% ✓</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width:98.7%; background:var(--accent2);"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span style="font-size:13px;">MLPClassifier（备选）</span>
+                <span style="font-size:13px; color:var(--muted);">～97%</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width:97%; background:var(--muted);"></div>
+              </div>
+            </div>
+          </div>
+          <p class="subtitle" style="font-size:11px; margin-top:14px;">RandomForest 在准确率和推理速度上均优胜，直接选用</p>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:16px;">弱项字母分析</h3>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                <span style="font-size:13px;">N（形似 M）</span>
+                <span style="font-size:13px; color:var(--accent3);">94.4%</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width:94.4%; background:var(--accent3);"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                <span style="font-size:13px;">M（形似 N）</span>
+                <span style="font-size:13px; color:var(--accent3);">95.4%</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width:95.4%; background:var(--accent3);"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                <span style="font-size:13px;">其余字母</span>
+                <span style="font-size:13px; color:var(--accent2);">≥ 97%</span>
+              </div>
+              <div class="progress-bar-wrap">
+                <div class="progress-bar-fill" style="width:99%; background:var(--accent2);"></div>
+              </div>
+            </div>
+          </div>
+          <p class="subtitle" style="font-size:11px; margin-top:14px;">
+            M/N 混淆为已知固有难点，将在单词库设计中规避高频 MN 组合
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 6 — SYSTEM ARCHITECTURE
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-6" id="slide-6">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:22px;">
+
+      <div>
+        <div class="section-label">System Architecture</div>
+        <h2>模块架构设计</h2>
+      </div>
+
+      <div class="arch-diagram">
+        <!-- Row 1: Input Layer -->
+        <div style="text-align:center; font-size:11px; color:var(--muted); font-weight:700; letter-spacing:0.1em; text-transform:uppercase;">输入层</div>
+        <div class="arch-row">
+          <div class="arch-box highlighted">
+            <span class="arch-icon">📷</span>
+            Camera Feed
+            <span class="arch-sub">OpenCV Thread</span>
+          </div>
+        </div>
+
+        <div class="arch-row"><span class="arch-arrow">↓</span></div>
+
+        <!-- Row 2: CV Core -->
+        <div style="text-align:center; font-size:11px; color:var(--muted); font-weight:700; letter-spacing:0.1em; text-transform:uppercase;">视觉核心层</div>
+        <div class="arch-row" style="gap:16px;">
+          <div class="arch-box highlighted">
+            <span class="arch-icon">✋</span>
+            MediaPipe<br>HandLandmarker
+            <span class="arch-sub">21 keypoints</span>
+          </div>
+          <span class="arch-arrow">→</span>
+          <div class="arch-box highlighted">
+            <span class="arch-icon">📐</span>
+            Normalizer
+            <span class="arch-sub">BBox relative coords</span>
+          </div>
+          <span class="arch-arrow">→</span>
+          <div class="arch-box highlighted">
+            <span class="arch-icon">🌲</span>
+            Recognizer
+            <span class="arch-sub">RF + smooth buffer</span>
+          </div>
+        </div>
+
+        <div class="arch-row"><span class="arch-arrow">↓</span></div>
+
+        <!-- Row 3: Game Layer -->
+        <div style="text-align:center; font-size:11px; color:var(--muted); font-weight:700; letter-spacing:0.1em; text-transform:uppercase;">游戏层</div>
+        <div class="arch-row" style="gap:14px;">
+          <div class="arch-box green">
+            <span class="arch-icon">📋</span>
+            Menu
+            <span class="arch-sub">scene dispatcher</span>
+          </div>
+          <div class="arch-box green">
+            <span class="arch-icon">📖</span>
+            Learn Mode
+            <span class="arch-sub">guided practice</span>
+          </div>
+          <div class="arch-box green">
+            <span class="arch-icon">⏱</span>
+            Test Mode
+            <span class="arch-sub">timed scoring</span>
+          </div>
+          <div class="arch-box green">
+            <span class="arch-icon">🕹</span>
+            Freeplay
+            <span class="arch-sub">live demo</span>
+          </div>
+          <div class="arch-box purple">
+            <span class="arch-icon">🤺</span>
+            Mascot
+            <span class="arch-sub">IDLE/CORRECT/WRONG</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <span class="tag tag-blue">src/recognizer.py</span>
+        <span class="tag tag-green">src/game/main.py</span>
+        <span class="tag tag-green">src/game/mascot.py</span>
+        <span class="tag tag-purple">src/utils/score.py</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 7 — GAME MODES
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-7" id="slide-7">
+    <div style="width:100%; max-width:960px; display:flex; flex-direction:column; gap:22px;">
+
+      <div>
+        <div class="section-label">Game Modes Design</div>
+        <h2>三大游戏模式</h2>
+      </div>
+
+      <div class="grid-3">
+        <div class="mode-card">
+          <div class="mode-icon">📖</div>
+          <span class="tag tag-green" style="width:fit-content;">Learn Mode</span>
+          <div class="mode-title">学习模式</div>
+          <div class="mode-desc">按单词逐字母引导练习，吉祥物实时反馈，无时间压力</div>
+          <ul class="feature-list">
+            <li>Easy 词库随机取词（如 CAT / SUN）</li>
+            <li>高亮当前目标字母 + ASL 参考图</li>
+            <li>正确后自动推进，停留 1.5 秒</li>
+            <li>→ 跳过 / ESC 返回菜单</li>
+          </ul>
+        </div>
+
+        <div class="mode-card">
+          <div class="mode-icon">⏱</div>
+          <span class="tag tag-blue" style="width:fit-content;">Test Mode</span>
+          <div class="mode-title">测试模式</div>
+          <div class="mode-desc">计时计分，5 个随机单词，检验学习成果</div>
+          <ul class="feature-list">
+            <li>每字母限时 10 秒，超时自动失误</li>
+            <li>答对 +10 分，完整单词额外 +20</li>
+            <li>结束后显示弱点字母统计</li>
+            <li>Top 5 本地排行榜持久化</li>
+          </ul>
+        </div>
+
+        <div class="mode-card">
+          <div class="mode-icon">🕹</div>
+          <span class="tag tag-purple" style="width:fit-content;">Freeplay</span>
+          <div class="mode-title">自由模式</div>
+          <div class="mode-desc">全屏摄像头背景，实时展示识别结果，适合演示</div>
+          <ul class="feature-list">
+            <li>左上角大字显示当前字母 + 置信度</li>
+            <li>最近 5 个字母横向滚动历史</li>
+            <li>手部骨架实时叠加显示</li>
+            <li>右下角迷你吉祥物跟随状态</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card" style="padding:16px 22px;">
+        <div style="display:flex; gap:24px; flex-wrap:wrap; align-items:center;">
+          <span style="font-size:13px; color:var(--muted);">单词库设计：</span>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <span class="tag tag-green">Easy: HI BYE CAT DOG SUN</span>
+            <span class="tag tag-blue">Medium: HELLO WATER APPLE</span>
+            <span class="tag tag-purple">Hard: FRIEND SCHOOL PYTHON</span>
+          </div>
+          <span style="font-size:12px; color:var(--accent3); margin-left:auto;">全部排除 J、Z</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 8 — MASCOT DESIGN
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-8" id="slide-8">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:22px;">
+
+      <div>
+        <div class="section-label">UI Character Design</div>
+        <h2>吉祥物小人 — 视觉反馈核心</h2>
+      </div>
+
+      <div class="mascot-showcase">
+
+        <!-- IDLE -->
+        <div class="mascot-item">
+          <svg width="120" height="180" viewBox="0 0 120 180">
+            <!-- body -->
+            <ellipse cx="60" cy="75" rx="18" ry="24" fill="#21262d" stroke="#58a6ff" stroke-width="2"/>
+            <!-- head -->
+            <circle cx="60" cy="40" r="20" fill="#21262d" stroke="#58a6ff" stroke-width="2"/>
+            <!-- eyes -->
+            <circle cx="53" cy="37" r="3" fill="#58a6ff"/>
+            <circle cx="67" cy="37" r="3" fill="#58a6ff"/>
+            <!-- smile -->
+            <path d="M53 47 Q60 52 67 47" stroke="#8b949e" stroke-width="2" fill="none" stroke-linecap="round"/>
+            <!-- arms down -->
+            <line x1="42" y1="78" x2="28" y2="105" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+            <line x1="78" y1="78" x2="92" y2="105" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+            <!-- legs -->
+            <line x1="52" y1="97" x2="44" y2="130" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+            <line x1="68" y1="97" x2="76" y2="130" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+            <!-- feet -->
+            <line x1="44" y1="130" x2="36" y2="133" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+            <line x1="76" y1="130" x2="84" y2="133" stroke="#58a6ff" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <div class="mascot-label" style="color:var(--muted);">IDLE</div>
+          <div style="font-size:11px; color:var(--muted); text-align:center;">等待 / 无手势</div>
+        </div>
+
+        <!-- CORRECT -->
+        <div class="mascot-item">
+          <svg width="120" height="180" viewBox="0 0 120 180">
+            <!-- glow ring -->
+            <circle cx="60" cy="75" r="50" fill="none" stroke="rgba(63,185,80,0.2)" stroke-width="12"/>
+            <circle cx="60" cy="75" r="42" fill="none" stroke="rgba(63,185,80,0.15)" stroke-width="8"/>
+            <!-- body -->
+            <ellipse cx="60" cy="80" rx="18" ry="22" fill="#21262d" stroke="#3fb950" stroke-width="2"/>
+            <!-- head -->
+            <circle cx="60" cy="44" r="20" fill="#21262d" stroke="#3fb950" stroke-width="2"/>
+            <!-- eyes happy -->
+            <path d="M50 40 Q53 36 56 40" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M64 40 Q67 36 70 40" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <!-- big smile -->
+            <path d="M50 50 Q60 60 70 50" stroke="#3fb950" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <!-- arms UP! -->
+            <line x1="43" y1="77" x2="20" y2="50" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+            <line x1="77" y1="77" x2="100" y2="50" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+            <!-- hands star -->
+            <circle cx="20" cy="48" r="6" fill="#3fb950" opacity="0.8"/>
+            <circle cx="100" cy="48" r="6" fill="#3fb950" opacity="0.8"/>
+            <!-- star sparks -->
+            <line x1="13" y1="41" x2="10" y2="38" stroke="#3fb950" stroke-width="2"/>
+            <line x1="27" y1="41" x2="30" y2="38" stroke="#3fb950" stroke-width="2"/>
+            <line x1="93" y1="41" x2="90" y2="38" stroke="#3fb950" stroke-width="2"/>
+            <line x1="107" y1="41" x2="110" y2="38" stroke="#3fb950" stroke-width="2"/>
+            <!-- legs -->
+            <line x1="52" y1="100" x2="46" y2="133" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+            <line x1="68" y1="100" x2="74" y2="133" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+            <line x1="46" y1="133" x2="36" y2="136" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+            <line x1="74" y1="133" x2="84" y2="136" stroke="#3fb950" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <div class="mascot-label" style="color:var(--accent2);">CORRECT ✓</div>
+          <div style="font-size:11px; color:var(--muted); text-align:center;">举手欢呼 · 绿色光晕</div>
+        </div>
+
+        <!-- WRONG -->
+        <div class="mascot-item">
+          <svg width="120" height="180" viewBox="0 0 120 180">
+            <!-- shake effect -->
+            <circle cx="62" cy="75" r="48" fill="none" stroke="rgba(247,129,102,0.18)" stroke-width="10"/>
+            <!-- body -->
+            <ellipse cx="62" cy="80" rx="18" ry="22" fill="#21262d" stroke="#f78166" stroke-width="2"/>
+            <!-- head tilted -->
+            <g transform="rotate(8, 62, 44)">
+              <circle cx="62" cy="44" r="20" fill="#21262d" stroke="#f78166" stroke-width="2"/>
+              <!-- eyes sad -->
+              <line x1="54" y1="37" x2="59" y2="42" stroke="#f78166" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="59" y1="37" x2="54" y2="42" stroke="#f78166" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="66" y1="37" x2="71" y2="42" stroke="#f78166" stroke-width="2.5" stroke-linecap="round"/>
+              <line x1="71" y1="37" x2="66" y2="42" stroke="#f78166" stroke-width="2.5" stroke-linecap="round"/>
+              <!-- sad mouth -->
+              <path d="M53 51 Q62 46 71 51" stroke="#f78166" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </g>
+            <!-- arms spread shrug -->
+            <line x1="45" y1="77" x2="22" y2="90" stroke="#f78166" stroke-width="3" stroke-linecap="round"/>
+            <line x1="79" y1="77" x2="102" y2="90" stroke="#f78166" stroke-width="3" stroke-linecap="round"/>
+            <!-- palms up -->
+            <line x1="22" y1="90" x2="18" y2="98" stroke="#f78166" stroke-width="3" stroke-linecap="round"/>
+            <line x1="102" y1="90" x2="106" y2="98" stroke="#f78166" stroke-width="3" stroke-linecap="round"/>
+            <!-- legs -->
+            <line x1="53" y1="100" x2="47" y2="133" stroke="#f78166" stroke-width="3" stroke-linecap="round"/>
+            <line x1="71" y1="100" x2="77" y2="133" stroke="#f78166" stroke-width="3" stroke-linecap="round"/>
+            <line x1="47" y1="133" x2="37" y2="136" stroke="#f78166" stroke-width="3" stroke-linecap="round"/>
+            <line x1="77" y1="133" x2="87" y2="136" stroke="#f78166" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+          <div class="mascot-label" style="color:var(--accent3);">WRONG ✗</div>
+          <div style="font-size:11px; color:var(--muted); text-align:center;">摊手摇头 · 红色效果</div>
+        </div>
+
+      </div>
+
+      <div class="grid-2" style="margin-top:4px;">
+        <div class="card">
+          <h3 style="margin-bottom:10px; font-size:15px;">实现方式</h3>
+          <ul class="feature-list">
+            <li>纯 Pygame 基本图形绘制（圆形 + 线条），无需图片资源</li>
+            <li>三种姿态坐标各自定义，线性插值实现 0.3 秒过渡动画</li>
+            <li>接口：<code style="color:var(--accent); font-size:11px;">mascot.set_state("IDLE"|"CORRECT"|"WRONG")</code></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:10px; font-size:15px;">触发逻辑</h3>
+          <ul class="feature-list">
+            <li>无手 / 等待 → IDLE（轻微呼吸动画）</li>
+            <li>连续 3 帧一致且匹配目标字母 → CORRECT</li>
+            <li>置信度达标但字母错误 → WRONG</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 9 — PROGRESS
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-9" id="slide-9">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:22px;">
+
+      <div>
+        <div class="section-label">Development Progress</div>
+        <h2>开发进度总览</h2>
+      </div>
+
+      <div class="phase-list">
+        <div class="phase-row">
+          <span class="phase-num">Phase 0</span>
+          <span class="phase-name">项目初始化</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-done" style="width:100%"></div></div>
+          <span class="phase-status" style="color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 1</span>
+          <span class="phase-name">数据集获取（Kaggle ASL Alphabet）</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-done" style="width:100%"></div></div>
+          <span class="phase-status" style="color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 2</span>
+          <span class="phase-name">MediaPipe 关键点提取 → landmarks.csv</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-done" style="width:100%"></div></div>
+          <span class="phase-status" style="color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 3</span>
+          <span class="phase-name">模型训练 → 98.70% 准确率</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-done" style="width:100%"></div></div>
+          <span class="phase-status" style="color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 4</span>
+          <span class="phase-name">实时识别模块 Recognizer（摄像头→字母）</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-done" style="width:100%"></div></div>
+          <span class="phase-status" style="color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div class="phase-row" style="border-color:var(--accent); background:rgba(88,166,255,0.05);">
+          <span class="phase-num" style="color:var(--accent);">Phase 5</span>
+          <span class="phase-name" style="color:var(--accent);">Pygame 主框架 + 吉祥物 + 单词库</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-partial" style="width:30%"></div></div>
+          <span class="phase-status" style="color:var(--accent);">🔨 进行中</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 6</span>
+          <span class="phase-name">学习模式实现</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-todo" style="width:0%"></div></div>
+          <span class="phase-status" style="color:var(--muted);">📋 待开始</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 7</span>
+          <span class="phase-name">测试模式 + 排行榜</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-todo" style="width:0%"></div></div>
+          <span class="phase-status" style="color:var(--muted);">📋 待开始</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 8</span>
+          <span class="phase-name">自由模式（实时展示）</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-todo" style="width:0%"></div></div>
+          <span class="phase-status" style="color:var(--muted);">📋 待开始</span>
+        </div>
+        <div class="phase-row">
+          <span class="phase-num">Phase 9–10</span>
+          <span class="phase-name">集成测试 · 优化 · 收尾文档</span>
+          <div class="phase-bar-wrap"><div class="phase-bar bar-todo" style="width:0%"></div></div>
+          <span class="phase-status" style="color:var(--muted);">📋 待开始</span>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; margin-top:4px;">
+        <span class="tag tag-green">CV 核心已完成 ✓</span>
+        <span class="tag tag-blue">模型精度达标 ✓</span>
+        <span class="tag tag-red">游戏层构建中</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════
+       SLIDE 10 — ROADMAP & NEXT STEPS
+  ═════════════════════════════════════════ -->
+  <div class="slide slide-10" id="slide-10">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:24px;">
+
+      <div>
+        <div class="section-label">Roadmap & Next Steps</div>
+        <h2>后续计划 · 期末目标</h2>
+      </div>
+
+      <div class="timeline">
+        <div class="tl-item">
+          <div class="tl-dot done"></div>
+          <div class="tl-label">Phase 0–4<br><span style="color:var(--accent2);">已完成</span><br>CV 管线全通</div>
+        </div>
+        <div class="tl-item now">
+          <div class="tl-dot now"></div>
+          <div class="tl-label">Phase 5<br>进行中<br>主框架+吉祥物</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot future"></div>
+          <div class="tl-label">Phase 6<br>学习模式<br>引导练习</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot future"></div>
+          <div class="tl-label">Phase 7<br>测试模式<br>计时计分</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot future"></div>
+          <div class="tl-label">Phase 8<br>自由模式<br>实时展示</div>
+        </div>
+        <div class="tl-item">
+          <div class="tl-dot future"></div>
+          <div class="tl-label">Phase 9–10<br>期末交付<br>Demo + 文档</div>
+        </div>
+      </div>
+
+      <div class="cta-row">
+        <div class="cta-card">
+          <span class="cta-icon">🎯</span>
+          <div class="cta-title">近期目标（2 周内）</div>
+          <div class="cta-desc">
+            完成 Pygame SceneManager、吉祥物三态动画、单词库模块，
+            实现 Menu → LearnMode 可运行闭环
+          </div>
+        </div>
+        <div class="cta-card">
+          <span class="cta-icon">⚡</span>
+          <div class="cta-title">性能目标</div>
+          <div class="cta-desc">
+            识别延迟 &lt; 200ms · 30 FPS 稳定运行 ·
+            普通笔记本（无 GPU）流畅跑全流程
+          </div>
+        </div>
+        <div class="cta-card">
+          <span class="cta-icon">🏁</span>
+          <div class="cta-title">期末交付物</div>
+          <div class="cta-desc">
+            三模式完整游戏 · 排行榜 · 演示视频（≥2 分钟）·
+            完善文档 · GitHub tag v1.0
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:16px 24px;">
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          <span style="font-size:20px;">🤟</span>
+          <span style="font-size:14px; font-weight:600;">核心创新点：</span>
+          <span style="font-size:13px; color:var(--muted);">
+            MediaPipe 新版 Tasks API · 边界框二次归一化 · 帧平滑消抖 · 纯 Pygame 吉祥物 · 游戏化单词拼写学习闭环
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /slides-wrapper -->
+
+<!-- Navigation -->
+<div class="nav">
+  <button id="btn-prev" onclick="navigate(-1)" disabled>‹</button>
+  <div class="progress-dots" id="dots"></div>
+  <span class="slide-counter" id="counter">1 / 10</span>
+  <button id="btn-next" onclick="navigate(1)">›</button>
+</div>
+
+<div class="key-hint">← → 切换页面 &nbsp;|&nbsp; Space 下一页</div>
+
+<script>
+  const TOTAL = 10;
+  let current = 1;
+
+  // Build dots
+  const dotsEl = document.getElementById('dots');
+  for (let i = 1; i <= TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 1 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsEl.appendChild(d);
+  }
+
+  function goTo(n) {
+    document.getElementById('slide-' + current).classList.remove('active');
+    dotsEl.children[current - 1].classList.remove('active');
+    current = Math.max(1, Math.min(TOTAL, n));
+    document.getElementById('slide-' + current).classList.add('active');
+    dotsEl.children[current - 1].classList.add('active');
+    document.getElementById('counter').textContent = current + ' / ' + TOTAL;
+    document.getElementById('btn-prev').disabled = current === 1;
+    document.getElementById('btn-next').disabled = current === TOTAL;
+  }
+
+  function navigate(dir) { goTo(current + dir); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); navigate(1); }
+    if (e.key === 'ArrowLeft')                    { e.preventDefault(); navigate(-1); }
+  });
+</script>
+</body>
+</html>
