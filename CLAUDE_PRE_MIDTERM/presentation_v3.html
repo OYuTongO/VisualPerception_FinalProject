@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>基于手势识别的实时手语教学反馈系统 — 期中汇报</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --accent3: #f78166;
+    --accent4: #d2a8ff;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --border: #30363d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .slides-wrapper { width: 100%; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 48px 72px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    transform: translateY(20px);
+  }
+
+  .slide.active {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateY(0);
+  }
+
+  /* ── Navigation ── */
+  .nav {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 100;
+    background: rgba(22,27,34,0.9);
+    border: 1px solid var(--border);
+    border-radius: 48px;
+    padding: 12px 24px;
+    backdrop-filter: blur(12px);
+  }
+
+  .nav button {
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 20px;
+    padding: 4px 12px;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+
+  .nav button:hover { background: var(--surface2); }
+  .nav button:disabled { opacity: 0.3; cursor: default; }
+
+  .slide-counter { color: var(--muted); font-size: 13px; min-width: 56px; text-align: center; }
+
+  .progress-dots { display: flex; gap: 6px; align-items: center; }
+
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--border); cursor: pointer; transition: all 0.2s;
+  }
+  .dot.active { background: var(--accent); width: 18px; border-radius: 4px; }
+
+  .key-hint {
+    position: fixed; bottom: 32px; right: 40px;
+    color: var(--muted); font-size: 11px; z-index: 100;
+  }
+
+  /* ── Common Components ── */
+  .tag {
+    display: inline-block; padding: 4px 12px; border-radius: 20px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .tag-blue   { background: rgba(88,166,255,0.15);  color: var(--accent);  border: 1px solid rgba(88,166,255,0.3); }
+  .tag-green  { background: rgba(63,185,80,0.15);   color: var(--accent2); border: 1px solid rgba(63,185,80,0.3); }
+  .tag-red    { background: rgba(247,129,102,0.15); color: var(--accent3); border: 1px solid rgba(247,129,102,0.3); }
+  .tag-purple { background: rgba(210,168,255,0.15); color: var(--accent4); border: 1px solid rgba(210,168,255,0.3); }
+  .tag-gray   { background: rgba(139,148,158,0.15); color: var(--muted);   border: 1px dashed var(--muted); }
+
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+
+  h1 { font-size: clamp(32px, 5vw, 56px); font-weight: 700; line-height: 1.1; }
+  h2 { font-size: clamp(22px, 3vw, 36px); font-weight: 700; line-height: 1.2; }
+  h3 { font-size: 18px; font-weight: 600; }
+
+  .subtitle { font-size: clamp(14px, 1.8vw, 18px); color: var(--muted); line-height: 1.6; }
+  .body-text { font-size: 15px; color: var(--text); line-height: 1.7; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 100%; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; width: 100%; }
+
+  .feature-list { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+  .feature-list li { font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: flex-start; }
+  .feature-list li::before { content: '›'; color: var(--accent); font-weight: 700; flex-shrink: 0; }
+
+  /* progress bar */
+  .progress-bar-wrap { background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; margin-top: 8px; }
+  .progress-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+
+  /* ── SLIDE 1 ── */
+  .slide-1 {
+    background:
+      radial-gradient(ellipse 60% 50% at 70% 30%, rgba(88,166,255,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 20% 70%, rgba(63,185,80,0.06) 0%, transparent 60%),
+      var(--bg);
+    text-align: center; gap: 20px;
+  }
+  .hand-icon { font-size: 64px; animation: wave 2s ease-in-out infinite; display: inline-block; }
+  @keyframes wave { 0%,100% { transform: rotate(-10deg); } 50% { transform: rotate(15deg); } }
+  .slide-1 h1 {
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 60%, var(--accent4) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+
+  /* ── SLIDE 2 ── */
+  .slide-2 {
+    background: radial-gradient(ellipse 50% 60% at 90% 20%, rgba(247,129,102,0.07) 0%, transparent 60%), var(--bg);
+  }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; margin-top: 8px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; }
+  .stat-card .stat-num { font-size: 32px; font-weight: 700; color: var(--accent); display: block; }
+  .stat-card .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
+  /* ── SLIDE 3 ── */
+  .slide-3 {
+    background: radial-gradient(ellipse 60% 50% at 10% 50%, rgba(63,185,80,0.07) 0%, transparent 65%), var(--bg);
+  }
+
+  /* ── SLIDE 4 (Highlights, was slide-5) ── */
+  .slide-4 {
+    background:
+      radial-gradient(ellipse 50% 60% at 15% 20%, rgba(88,166,255,0.08) 0%, transparent 65%),
+      radial-gradient(ellipse 40% 50% at 85% 80%, rgba(210,168,255,0.06) 0%, transparent 60%),
+      var(--bg);
+  }
+  .metric-row { display: flex; gap: 16px; width: 100%; }
+  .metric-card { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; text-align: center; }
+  .metric-big { font-size: 36px; font-weight: 700; color: var(--accent2); line-height: 1; display: block; }
+  .metric-label { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+  .mode-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 16px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .mode-card .mode-icon { font-size: 26px; }
+  .mode-card .mode-title { font-size: 15px; font-weight: 700; }
+  .mode-card .mode-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ── SLIDE 5 (Pipeline, was slide-6) ── */
+  .slide-5 {
+    background: radial-gradient(ellipse 55% 55% at 80% 80%, rgba(210,168,255,0.07) 0%, transparent 65%), var(--bg);
+  }
+  .pipeline { display: flex; align-items: center; width: 100%; margin-bottom: 20px; }
+  .pipeline-step {
+    flex: 1; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 10px; text-align: center;
+  }
+  .pipeline-step .step-icon { font-size: 22px; display: block; margin-bottom: 6px; }
+  .pipeline-step .step-name { font-size: 12px; font-weight: 600; color: var(--text); }
+  .pipeline-step .step-tech { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .pipeline-arrow { width: 24px; text-align: center; color: var(--accent); font-size: 16px; flex-shrink: 0; }
+  .tech-table { width: 100%; border-collapse: collapse; }
+  .tech-table tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+  .tech-table td { padding: 9px 14px; font-size: 13px; }
+  .tech-table td:first-child { color: var(--muted); width: 110px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* ── SLIDE 6 (Retrospective, was slide-7) ── */
+  .slide-6 {
+    background: radial-gradient(ellipse 55% 55% at 15% 85%, rgba(247,129,102,0.07) 0%, transparent 65%), var(--bg);
+  }
+  .retro-card {
+    background: var(--surface);
+    border-left: 3px solid var(--accent3);
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    border-radius: 0 10px 10px 0;
+    padding: 18px 22px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .retro-card .retro-tag { font-size: 10px; font-weight: 700; color: var(--accent3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .retro-card .retro-title { font-size: 14px; font-weight: 700; }
+  .retro-card .retro-body { font-size: 12px; color: var(--muted); line-height: 1.7; }
+  .retro-card .retro-resolve { font-size: 12px; color: var(--accent2); margin-top: 4px; }
+
+  /* ── SLIDE 7 (Enhancement, was slide-8) ── */
+  .slide-7 {
+    background: radial-gradient(ellipse 60% 55% at 50% 100%, rgba(88,166,255,0.07) 0%, transparent 60%), var(--bg);
+  }
+  .enhance-card {
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 18px;
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .enhance-card .en-num { font-size: 22px; font-weight: 800; color: var(--accent); opacity: 0.5; line-height: 1; flex-shrink: 0; width: 28px; }
+  .enhance-card .en-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .enhance-card .en-body  { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .enhance-card .en-tech  { font-size: 10px; color: var(--accent4); margin-top: 4px; font-style: italic; }
+</style>
+</head>
+<body>
+
+<div class="slides-wrapper">
+
+  <!-- ═══════════════ SLIDE 1 — TITLE ═══════════════ -->
+  <div class="slide slide-1 active" id="slide-1">
+
+    <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:8px;">
+      <span class="tag tag-blue">华东师范大学 · 视觉感知与前沿技术</span>
+      <span class="tag tag-green">Proposal</span>
+    </div>
+
+    <div class="hand-icon">🤟</div>
+
+    <h1>Real-time Handshape<br>Teaching Feedback System</h1>
+
+    <p class="subtitle" style="max-width:660px;">
+      基于手势识别的 ASL 字母实时教学反馈系统<br>
+      Gesture Recognition · Real-time Feedback · Teaching System
+    </p>
+
+    <div style="display:flex; gap:32px; justify-content:center; flex-wrap:wrap; margin-top:8px; padding-top:12px; border-top:1px solid var(--border);">
+      <span style="font-size:13px; color:var(--muted);">📅 2026 / 05 / 21</span>
+      <span style="font-size:13px; color:var(--muted);">👤 汇报人 &nbsp;陈卓然 &nbsp;潘南至</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SLIDE 2 — PROBLEM ═══════════════ -->
+  <div class="slide slide-2" id="slide-2">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:24px;">
+
+      <div>
+        <div class="section-label">Background & Motivation</div>
+        <h2>为什么做这个项目？</h2>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <span class="stat-num">7,200万+</span>
+          <span class="stat-label">全球聋哑人口<br>依赖手语沟通</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num">26</span>
+          <span class="stat-label">ASL 字母手势<br>（J、Z 为动态手势）</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-num">∞</span>
+          <span class="stat-label">传统学习方式<br>缺乏实时反馈</span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="color:var(--accent3); margin-bottom:10px;">⚠ 现有问题</h3>
+          <ul style="list-style:none; display:flex; flex-direction:column; gap:8px;">
+            <li class="body-text">· 学生课后练习时缺少教师实时纠正</li>
+            <li class="body-text">· 传统示范材料只能展示标准动作，不能解释“错在哪”</li>
+            <li class="body-text">· 教师难以量化学生长期掌握情况和共性难点</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="color:var(--accent2); margin-bottom:10px;">✓ 我们的方向</h3>
+          <ul style="list-style:none; display:flex; flex-direction:column; gap:8px;">
+            <li class="body-text">· 将实时识别能力升级为教学反馈能力</li>
+            <li class="body-text">· 从“识别字母”转向“判断动作是否规范并给出建议”</li>
+            <li class="body-text">· 同时服务学生练习与教师教学组织</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SLIDE 3 — SOLUTION OVERVIEW ═══════════════ -->
+  <div class="slide slide-3" id="slide-3">
+    <div style="width:100%; max-width:960px; display:flex; flex-direction:column; gap:22px;">
+
+      <div>
+        <div class="section-label">Solution Overview</div>
+        <h2>整体思路：看手 → 识手型 → 给反馈 → 促学习</h2>
+      </div>
+
+      <div style="display:flex; align-items:flex-start; gap:14px; width:100%;">
+
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:8px;">
+          <div style="width:100%; border-radius:10px; overflow:hidden; border:1px solid var(--border); background:var(--surface2);">
+            <img src="gesture_before_detected.png" alt="识别前" style="width:100%; height:200px; object-fit:cover; display:block;">
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:2px;">学习者原始动作</div>
+            <div style="font-size:10px; color:var(--muted); line-height:1.4;">摄像头采集练习手型<br>作为实时教学输入</div>
+          </div>
+        </div>
+
+        <div style="font-size:20px; color:var(--accent); display:flex; align-items:center; padding-top:80px; flex-shrink:0;">→</div>
+
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:8px;">
+          <div style="width:100%; border-radius:10px; overflow:hidden; border:1px solid var(--accent); background:var(--surface2); box-shadow:0 0 12px rgba(88,166,255,0.2);">
+            <img src="gesture_after_detected.png" alt="关键点检测" style="width:100%; height:200px; object-fit:cover; display:block;">
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:12px; font-weight:700; color:var(--accent); margin-bottom:2px;">关键点与结构分析</div>
+            <div style="font-size:10px; color:var(--muted); line-height:1.4;">21 个手部关键点提取<br>进入识别与纠错模块</div>
+          </div>
+        </div>
+
+        <div style="font-size:20px; color:var(--accent2); display:flex; align-items:center; padding-top:80px; flex-shrink:0;">→</div>
+
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:8px;">
+          <div style="width:100%; border-radius:10px; overflow:hidden; border:1px solid var(--accent2); background:var(--surface2); box-shadow:0 0 12px rgba(63,185,80,0.2);">
+            <img src="alpha.png" alt="教学反馈界面" style="width:100%; height:200px; object-fit:cover; display:block;">
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:12px; font-weight:700; color:var(--accent2); margin-bottom:2px;">教学反馈界面</div>
+            <div style="font-size:10px; color:var(--muted); line-height:1.4;">即时判断、纠错提示与练习引导<br>形成学习闭环</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <span class="tag tag-blue">OpenCV</span>
+        <span class="tag tag-green">MediaPipe Tasks API</span>
+        <span class="tag tag-purple">RandomForest</span>
+        <span class="tag tag-blue">Pygame</span>
+        <span class="tag tag-green">LanXin Eagle Pro</span>
+        <span class="tag tag-red">Python 3.10+</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SLIDE 4 — 亮点细节（was slide-5）═══════════════ -->
+  <div class="slide slide-4" id="slide-4">
+    <div style="width:100%; max-width:980px; display:flex; flex-direction:column; gap:18px;">
+
+      <div>
+        <div class="section-label">Highlights</div>
+        <h2>亮点细节</h2>
+      </div>
+
+      <div class="metric-row">
+        <div class="metric-card">
+          <span class="metric-big">57,339</span>
+          <div class="metric-label">关键点样本（Kaggle 87k 图片提取）</div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:95%"></div></div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-big">24</span>
+          <div class="metric-label">当前静态手型类别<br>适合作为教学原型起点</div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:100%"></div></div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-big" style="color:var(--accent2);">98.70%</span>
+          <div class="metric-label">当前识别模型准确率<br>可支撑课堂演示</div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:98.7%"></div></div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-big" style="color:var(--accent3); font-size:28px;">3 层</span>
+          <div class="metric-label">反馈结构设计<br>对错 / 错因 / 建议</div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:90%; background:var(--accent3);"></div></div>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <div class="mode-card">
+          <div class="mode-icon">🎯</div>
+          <span class="tag tag-green" style="width:fit-content; font-size:10px;">Practice</span>
+          <div class="mode-title">示范与练习</div>
+          <ul class="feature-list">
+            <li>显示目标字母、标准姿态与当前动作对比</li>
+            <li>适合单字母练习和分步学习</li>
+          </ul>
+        </div>
+        <div class="mode-card">
+          <div class="mode-icon">🩺</div>
+          <span class="tag tag-blue" style="width:fit-content; font-size:10px;">Feedback</span>
+          <div class="mode-title">细粒度纠错</div>
+          <ul class="feature-list">
+            <li>围绕拇指、食指、掌心张开度做偏差分析</li>
+            <li>把分类结果升级为教学建议</li>
+          </ul>
+        </div>
+        <div class="mode-card">
+          <div class="mode-icon">📊</div>
+          <span class="tag tag-purple" style="width:fit-content; font-size:10px;">Teacher</span>
+          <div class="mode-title">教师支持</div>
+          <ul class="feature-list">
+            <li>统计高错误率字母和学生个体弱项</li>
+            <li>支持专项训练与后续复习安排</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; align-items:flex-start; width:100%;">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <div style="width:100%; border-radius:10px; overflow:hidden; border:1px solid var(--muted); background:var(--surface2);">
+            <img src="alpha.png" alt="等待状态" style="width:100%; height:130px; object-fit:cover; object-position:center top; display:block;">
+          </div>
+          <span class="tag tag-gray" style="font-size:10px; text-transform:none; letter-spacing:0;">WAITING · 等待稳定</span>
+          <div style="font-size:10px; color:var(--muted); text-align:center; line-height:1.4;">检测到手但尚未稳定确认<br>避免误判</div>
+        </div>
+
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <div style="width:100%; border-radius:10px; overflow:hidden; border:1px solid var(--accent2); background:var(--surface2); box-shadow:0 0 10px rgba(63,185,80,0.25);">
+            <img src="true.png" alt="正确反馈" style="width:100%; height:130px; object-fit:cover; object-position:center top; display:block;">
+          </div>
+          <span class="tag tag-green" style="font-size:10px; text-transform:none; letter-spacing:0;">CORRECT · 练习达标</span>
+          <div style="font-size:10px; color:var(--muted); text-align:center; line-height:1.4;">输出正向鼓励<br>进入下一轮练习</div>
+        </div>
+
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+          <div style="width:100%; border-radius:10px; overflow:hidden; border:1px solid var(--accent3); background:var(--surface2); box-shadow:0 0 10px rgba(247,129,102,0.25);">
+            <img src="false.png" alt="错误反馈" style="width:100%; height:130px; object-fit:cover; object-position:center top; display:block;">
+          </div>
+          <span class="tag tag-red" style="font-size:10px; text-transform:none; letter-spacing:0;">WRONG · 需要纠正</span>
+          <div style="font-size:10px; color:var(--muted); text-align:center; line-height:1.4;">指出错误部位<br>引导再次调整</div>
+        </div>
+
+        <div class="card" style="width:250px; padding:18px 20px; flex-shrink:0;">
+          <div style="font-size:11px; font-weight:700; color:var(--accent4); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px;">Product Upgrade</div>
+          <h3 style="margin-bottom:8px;">从识别到教学</h3>
+          <ul class="feature-list">
+            <li>核心不再是“像不像某个字母”，而是“是否达到教学要求”</li>
+            <li>反馈既服务学生，也服务教师后续教学组织</li>
+            <li>后续可与教育学部共同打磨反馈语句和训练流程</li>
+          </ul>
+          <div style="height:1px; background:var(--border); margin:12px 0;"></div>
+          <div style="font-size:11px; font-weight:700; color:var(--accent4); margin-bottom:8px;">目标价值</div>
+          <ul class="feature-list">
+            <li>即时纠错</li>
+            <li>个性化回练</li>
+            <li>教师数据支持</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════ SLIDE 5 — 端到端流程（was slide-6）═══════════════ -->
+  <div class="slide slide-5" id="slide-5">
+    <div style="width:100%; max-width:960px; display:flex; flex-direction:column; gap:22px;">
+
+      <div>
+        <div class="section-label">Technical Pipeline</div>
+        <h2>端到端处理流程</h2>
+      </div>
+
+      <div class="pipeline">
+        <div class="pipeline-step">
+          <span class="step-icon">📷</span>
+          <div class="step-name">图像采集</div>
+          <div class="step-tech">LanXin Eagle Pro</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">✋</span>
+          <div class="step-name">手部检测</div>
+          <div class="step-tech">MediaPipe HandLandmarker</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">📐</span>
+          <div class="step-name">关键点归一化</div>
+          <div class="step-tech">21 pts → 42-dim vector</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">🌲</span>
+          <div class="step-name">分类推理</div>
+          <div class="step-tech">RandomForestClassifier</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">🔁</span>
+          <div class="step-name">帧平滑</div>
+          <div class="step-tech">3-frame majority vote</div>
+        </div>
+        <div class="pipeline-arrow">→</div>
+        <div class="pipeline-step">
+          <span class="step-icon">🎓</span>
+          <div class="step-name">教学逻辑</div>
+          <div class="step-tech">Pygame Scene Manager</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="margin-bottom:14px; color:var(--accent);">技术选型依据</h3>
+          <table class="tech-table">
+            <tr><td>相机</td><td>LanXin Eagle Pro — 高帧率、低畸变、强弱光</td></tr>
+            <tr><td>视觉</td><td>MediaPipe Tasks API（0.10.35+）</td></tr>
+            <tr><td>模型</td><td>RandomForest — 速度快，无需 GPU</td></tr>
+            <tr><td>界面</td><td>Pygame — 跨平台，帧级渲染控制</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <h3 style="margin-bottom:14px; color:var(--accent4);">关键设计决策</h3>
+          <ul class="feature-list" style="gap:10px;">
+            <li>MediaPipe 0.10+ 移除 mp.solutions API，迁移至 Tasks API + .task 模型文件</li>
+            <li>坐标二次归一化到手部 BBox，消除位置和尺度干扰，准确率 92% → 98.70%</li>
+            <li>排除 J、Z（动态手势），仅识别 24 个静态字母</li>
+            <li>摄像头帧在子线程采集，主循环保持 30 FPS 稳定渲染</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SLIDE 6 — 难点复盘（was slide-7, 重写为3点）═══════════════ -->
+  <div class="slide slide-6" id="slide-6">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:22px;">
+
+      <div>
+        <div class="section-label">Retrospective</div>
+        <h2>难点复盘</h2>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:16px;">
+
+        <div class="retro-card">
+          <span class="retro-tag">难点 01 · 特征被位置信息污染</span>
+          <div class="retro-title">直接使用 MediaPipe 输出坐标，同一手势在不同位置 / 距离下特征向量差异极大</div>
+          <div class="retro-body">MediaPipe 输出的关键点坐标是相对整张图片的归一化值，手偏左、偏右、靠近或远离摄像头，42 个特征数字完全不同。模型被迫同时学习手势形状与手的空间位置，特征空间被位置信息污染，泛化能力极差。</div>
+          <div class="retro-resolve">✓ 解决：在 MediaPipe 之后增加 BBox 二次归一化——将所有坐标换算为相对手部包围盒的比例值（x_norm = (x − x_min) / w），彻底剔除位置与尺度因素。准确率从 ~92% 跳至 98.70%</div>
+        </div>
+
+        <div class="retro-card">
+          <span class="retro-tag">难点 02 · 逐帧输出与教学事件的根本矛盾</span>
+          <div class="retro-title">静态分类器以 30 fps 持续输出字母，同一手势静止不动即可"刷穿"整个单词</div>
+          <div class="retro-body">分类器每帧均产生结果，用户将手摆成字母 A 静止不动，系统就以 30 fps 速率持续输入 A，单词在毫秒内拼完，教学节奏完全崩溃。本质矛盾是：逐帧分类器输出的是<em>连续信号</em>，而教学系统需要的是<em>离散的手势事件</em>。</div>
+          <div class="retro-resolve">✓ 解决：引入 <code style="font-size:11px;">_last_confirmed</code> + 3 帧 deque 缓冲，将分类器包装为状态机——3 帧全部一致且与上次不同时才触发一次事件，将连续信号转化为离散手势事件流</div>
+        </div>
+
+        <div class="retro-card">
+          <span class="retro-tag">难点 03 · 单帧静态模型的固有局限</span>
+          <div class="retro-title">模型只能看单帧坐标，无时序信息，导致两类根本性问题无法被训练数据解决</div>
+          <div class="retro-body">① <strong>动态手势不可支持：</strong>J、Z 需要手部运动轨迹才能定义，单帧坐标无论如何也无法区分，直接排除 2 个字母。② <strong>高相似手型难区分：</strong>M（3 指折叠）与 N（4 指折叠）仅差一根手指的微小弯曲，成为准确率最低的字母对（94.4% / 95.4%），增加训练数据改善有限。两个问题的共同根源是模型缺乏时间维度的感知能力。</div>
+          <div class="retro-resolve">✓ 现阶段缓解：词库规避高频 MN 连续组合；后续方案：引入连续帧序列建模（光流 / LSTM），同步解决动态手势与相似手型问题</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SLIDE 7 — 后续改进方向（was slide-8）═══════════════ -->
+  <div class="slide slide-7" id="slide-7">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:18px;">
+
+      <div>
+        <div class="section-label">Future Enhancement</div>
+        <h2>后续深化改进方向</h2>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+
+        <div class="enhance-card">
+          <div class="en-num">01</div>
+          <div>
+            <div class="en-title">动态手势扩展（J & Z）</div>
+            <div class="en-body">LanXin Eagle Pro 高帧率（≥60fps）为时序建模创造硬件条件，引入光流法轨迹建模或简单 LSTM（~15 帧序列），识别 J 形 / Z 形轨迹，补全全部 26 字母。</div>
+            <div class="en-tech">技术路径：连续帧关键点序列 → 光流 / LSTM → 轨迹分类</div>
+          </div>
+        </div>
+
+        <div class="enhance-card">
+          <div class="en-num">02</div>
+          <div>
+            <div class="en-title">手势质量评分（超越对/错二分）</div>
+            <div class="en-body">以标准 ASL 关键点坐标为模板，计算用户手势与模板的余弦相似度或关节角度偏差，输出百分制质量分，如"你的 A 大拇指弯度不足，得 83 分"。</div>
+            <div class="en-tech">技术路径：关键点模板匹配 → 余弦相似度 / 角度误差</div>
+          </div>
+        </div>
+
+        <div class="enhance-card">
+          <div class="en-num">03</div>
+          <div>
+            <div class="en-title">个性化弱点追踪 + 自适应出题</div>
+            <div class="en-body">记录每个用户每个字母的历史错误率，生成 24 格字母热图；测试模式根据热图加权采样，高错误率字母出现频率更高，类似 Anki 间隔重复算法。</div>
+            <div class="en-tech">技术路径：错误率热图 → 加权随机采样 → 个性化出题</div>
+          </div>
+        </div>
+
+        <div class="enhance-card">
+          <div class="en-num">04</div>
+          <div>
+            <div class="en-title">增量学习 · 适应个体手型差异</div>
+            <div class="en-body">教学开始前加入 5 分钟校准环节，每个字母比划 3~5 次，新样本加入训练集做增量微调，解决不同用户手的大小/比例/习惯差异导致的识别偏差。</div>
+            <div class="en-tech">技术路径：sklearn warm_start=True，RandomForest 增量添加树</div>
+          </div>
+        </div>
+
+        <div class="enhance-card" style="grid-column:1/-1;">
+          <div class="en-num">05</div>
+          <div>
+            <div class="en-title">双手识别 + 连续字母流输入（练习模式升级）</div>
+            <div class="en-body">MediaPipe 支持 num_hands=2，可同时检测双手。在练习模式中实现连续字母流自动分词（基于手势停顿时间窗口），让自由练习从"展示工具"升级为真正的"手语输入法"。</div>
+            <div class="en-tech">技术路径：双手并行 Recognizer → 停顿检测 → 自动分词</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SLIDE 8 — PROGRESS（was slide-9）═══════════════ -->
+  <div class="slide" id="slide-8" style="background: radial-gradient(ellipse 60% 50% at 60% 10%, rgba(63,185,80,0.07) 0%, transparent 60%), var(--bg);">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:20px;">
+
+      <div>
+        <div class="section-label">Development Progress</div>
+        <h2>开发进度总览</h2>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:9px; width:100%;">
+
+        <div style="display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 18px;">
+          <span style="font-size:11px; font-weight:700; color:var(--muted); width:60px; flex-shrink:0;">Phase 0</span>
+          <span style="flex:1; font-size:13px; font-weight:600;">项目初始化</span>
+          <div style="width:140px; background:var(--surface2); border-radius:4px; height:5px; flex-shrink:0;"><div style="height:100%; border-radius:4px; background:var(--accent2); width:100%;"></div></div>
+          <span style="font-size:11px; width:52px; text-align:right; color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 18px;">
+          <span style="font-size:11px; font-weight:700; color:var(--muted); width:60px; flex-shrink:0;">Phase 1</span>
+          <span style="flex:1; font-size:13px; font-weight:600;">数据集获取（Kaggle ASL Alphabet）</span>
+          <div style="width:140px; background:var(--surface2); border-radius:4px; height:5px; flex-shrink:0;"><div style="height:100%; border-radius:4px; background:var(--accent2); width:100%;"></div></div>
+          <span style="font-size:11px; width:52px; text-align:right; color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 18px;">
+          <span style="font-size:11px; font-weight:700; color:var(--muted); width:60px; flex-shrink:0;">Phase 2</span>
+          <span style="flex:1; font-size:13px; font-weight:600;">MediaPipe 关键点提取 → landmarks.csv</span>
+          <div style="width:140px; background:var(--surface2); border-radius:4px; height:5px; flex-shrink:0;"><div style="height:100%; border-radius:4px; background:var(--accent2); width:100%;"></div></div>
+          <span style="font-size:11px; width:52px; text-align:right; color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 18px;">
+          <span style="font-size:11px; font-weight:700; color:var(--muted); width:60px; flex-shrink:0;">Phase 3</span>
+          <span style="flex:1; font-size:13px; font-weight:600;">模型训练 → 98.70% 准确率</span>
+          <div style="width:140px; background:var(--surface2); border-radius:4px; height:5px; flex-shrink:0;"><div style="height:100%; border-radius:4px; background:var(--accent2); width:100%;"></div></div>
+          <span style="font-size:11px; width:52px; text-align:right; color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 18px;">
+          <span style="font-size:11px; font-weight:700; color:var(--muted); width:60px; flex-shrink:0;">Phase 4</span>
+          <span style="flex:1; font-size:13px; font-weight:600;">实时识别模块 Recognizer（摄像头 → 字母）</span>
+          <div style="width:140px; background:var(--surface2); border-radius:4px; height:5px; flex-shrink:0;"><div style="height:100%; border-radius:4px; background:var(--accent2); width:100%;"></div></div>
+          <span style="font-size:11px; width:52px; text-align:right; color:var(--accent2);">✅ 完成</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; background:rgba(88,166,255,0.05); border:1px solid var(--accent); border-radius:10px; padding:11px 18px;">
+          <span style="font-size:11px; font-weight:700; color:var(--accent); width:60px; flex-shrink:0;">Phase 5</span>
+          <span style="flex:1; font-size:13px; font-weight:600; color:var(--accent);">Pygame 主框架 + 反馈角色 + 单词库</span>
+          <div style="width:140px; background:var(--surface2); border-radius:4px; height:5px; flex-shrink:0;"><div style="height:100%; border-radius:4px; background:var(--accent); width:30%;"></div></div>
+          <span style="font-size:11px; width:52px; text-align:right; color:var(--accent);">🔨 进行中</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 18px;">
+          <span style="font-size:11px; font-weight:700; color:var(--muted); width:60px; flex-shrink:0;">Phase 6–8</span>
+          <span style="flex:1; font-size:13px; font-weight:600;">学习 / 测试 / 练习三大模式</span>
+          <div style="width:140px; background:var(--surface2); border-radius:4px; height:5px; flex-shrink:0;"><div style="height:100%; border-radius:4px; background:var(--border); width:0%;"></div></div>
+          <span style="font-size:11px; width:52px; text-align:right; color:var(--muted);">📋 待开始</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:11px 18px;">
+          <span style="font-size:11px; font-weight:700; color:var(--muted); width:60px; flex-shrink:0;">Phase 9–10</span>
+          <span style="flex:1; font-size:13px; font-weight:600;">集成测试 · 优化 · 收尾文档</span>
+          <div style="width:140px; background:var(--surface2); border-radius:4px; height:5px; flex-shrink:0;"><div style="height:100%; border-radius:4px; background:var(--border); width:0%;"></div></div>
+          <span style="font-size:11px; width:52px; text-align:right; color:var(--muted);">📋 待开始</span>
+        </div>
+
+      </div>
+
+      <div style="display:flex; gap:12px; margin-top:4px;">
+        <span class="tag tag-green">CV 核心已完成 ✓</span>
+        <span class="tag tag-blue">模型精度达标 ✓</span>
+        <span class="tag tag-red">教学反馈层构建中</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ SLIDE 9 — 期末目标（was slide-10）═══════════════ -->
+  <div class="slide" id="slide-9" style="background: radial-gradient(ellipse 60% 55% at 50% 100%, rgba(88,166,255,0.07) 0%, transparent 60%), var(--bg);">
+    <div style="width:100%; max-width:900px; display:flex; flex-direction:column; gap:24px;">
+
+      <div>
+        <div class="section-label">Roadmap</div>
+        <h2>后续计划 · 期末目标</h2>
+      </div>
+
+      <div style="display:flex; gap:0; width:100%; position:relative; margin-bottom:8px;">
+        <div style="position:absolute; top:28px; left:60px; right:60px; height:2px; background:linear-gradient(90deg, var(--accent2), var(--accent), var(--accent4));"></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="width:16px; height:16px; border-radius:50%; background:var(--accent2); border:3px solid var(--accent2); margin-top:20px; z-index:1;"></div>
+          <div style="font-size:11px; font-weight:600; text-align:center; color:var(--accent2); line-height:1.3;">Phase 0–4<br>已完成<br>CV 管线全通</div>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="width:16px; height:16px; border-radius:50%; background:var(--bg); border:3px solid var(--accent); margin-top:20px; z-index:1; box-shadow:0 0 12px rgba(88,166,255,0.6);"></div>
+          <div style="font-size:11px; font-weight:600; text-align:center; color:var(--accent); line-height:1.3;">Phase 5<br>进行中<br>主框架+反馈角色</div>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="width:16px; height:16px; border-radius:50%; background:var(--bg); border:3px solid var(--border); margin-top:20px; z-index:1;"></div>
+          <div style="font-size:11px; font-weight:600; text-align:center; color:var(--muted); line-height:1.3;">Phase 6<br>学习模式<br>引导教学</div>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="width:16px; height:16px; border-radius:50%; background:var(--bg); border:3px solid var(--border); margin-top:20px; z-index:1;"></div>
+          <div style="font-size:11px; font-weight:600; text-align:center; color:var(--muted); line-height:1.3;">Phase 7<br>测试模式<br>评估计分</div>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="width:16px; height:16px; border-radius:50%; background:var(--bg); border:3px solid var(--border); margin-top:20px; z-index:1;"></div>
+          <div style="font-size:11px; font-weight:600; text-align:center; color:var(--muted); line-height:1.3;">Phase 8<br>练习模式<br>实时展示</div>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="width:16px; height:16px; border-radius:50%; background:var(--bg); border:3px solid var(--border); margin-top:20px; z-index:1;"></div>
+          <div style="font-size:11px; font-weight:600; text-align:center; color:var(--muted); line-height:1.3;">Phase 9–10<br>期末交付<br>Demo + 文档</div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:16px;">
+        <div style="flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center;">
+          <span style="font-size:28px; display:block; margin-bottom:8px;">🎯</span>
+          <div style="font-size:14px; font-weight:700; margin-bottom:6px;">近期目标（2 周内）</div>
+          <div style="font-size:12px; color:var(--muted); line-height:1.5;">完成 SceneManager、反馈角色三态动画、单词库，实现 Menu → LearnMode 可运行教学闭环</div>
+        </div>
+        <div style="flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center;">
+          <span style="font-size:28px; display:block; margin-bottom:8px;">⚡</span>
+          <div style="font-size:14px; font-weight:700; margin-bottom:6px;">性能目标</div>
+          <div style="font-size:12px; color:var(--muted); line-height:1.5;">识别延迟 &lt; 200ms · 30 FPS 稳定运行 · 普通笔记本（无 GPU）流畅跑全流程</div>
+        </div>
+        <div style="flex:1; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px; text-align:center;">
+          <span style="font-size:28px; display:block; margin-bottom:8px;">🏁</span>
+          <div style="font-size:14px; font-weight:700; margin-bottom:6px;">期末交付物</div>
+          <div style="font-size:12px; color:var(--muted); line-height:1.5;">三模式完整教学系统 · 排行榜 · 演示视频 ≥ 2 分钟 · 完善文档 · GitHub tag v1.0</div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:14px 22px;">
+        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+          <span style="font-size:18px;">🤟</span>
+          <span style="font-size:13px; font-weight:600;">核心创新：</span>
+          <span style="font-size:12px; color:var(--muted);">
+            LanXin Eagle Pro 工业相机 · MediaPipe Tasks API 适配 · BBox 二次归一化 · 3 帧平滑触发机制 · 纯 Pygame 反馈角色 · 单词拼写教学反馈闭环
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /slides-wrapper -->
+
+<div class="nav">
+  <button id="btn-prev" onclick="navigate(-1)" disabled>‹</button>
+  <div class="progress-dots" id="dots"></div>
+  <span class="slide-counter" id="counter">1 / 9</span>
+  <button id="btn-next" onclick="navigate(1)">›</button>
+</div>
+
+<div class="key-hint">← → 切换页面 &nbsp;|&nbsp; Space 下一页</div>
+
+<script>
+  const TOTAL = 9;
+  let current = 1;
+
+  const dotsEl = document.getElementById('dots');
+  for (let i = 1; i <= TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 1 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsEl.appendChild(d);
+  }
+
+  function goTo(n) {
+    document.getElementById('slide-' + current).classList.remove('active');
+    dotsEl.children[current - 1].classList.remove('active');
+    current = Math.max(1, Math.min(TOTAL, n));
+    document.getElementById('slide-' + current).classList.add('active');
+    dotsEl.children[current - 1].classList.add('active');
+    document.getElementById('counter').textContent = current + ' / ' + TOTAL;
+    document.getElementById('btn-prev').disabled = current === 1;
+    document.getElementById('btn-next').disabled = current === TOTAL;
+  }
+
+  function navigate(dir) { goTo(current + dir); }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); navigate(1); }
+    if (e.key === 'ArrowLeft')                    { e.preventDefault(); navigate(-1); }
+  });
+</script>
+</body>
+</html>

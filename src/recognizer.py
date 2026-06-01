@@ -138,6 +138,8 @@ if __name__ == "__main__":
             if not ret:
                 break
 
+            raw_frame = frame.copy()
+
             letter, conf = rec.predict(frame)
             draw_landmarks(frame, rec.get_landmarks())
 
@@ -161,6 +163,7 @@ if __name__ == "__main__":
                             cv2.FONT_HERSHEY_SIMPLEX, 1.8, (0, 255, 0), 4)
 
             cv2.imshow("ASL Recognizer - press Q to quit", frame)
+            cv2.imshow("Camera Raw", raw_frame)
 
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break

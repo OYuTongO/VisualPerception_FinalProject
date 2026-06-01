@@ -3,6 +3,8 @@ data/raw/
 
 # 模型文件（通过其他方式分发）
 model/*.pkl
+model/*.task
+model.zip
 
 # Python
 __pycache__/
@@ -26,6 +28,9 @@ Thumbs.db
 # 临时文件
 *.log
 score.json
+
+# 生成的缩略图
+CLAUDE_PRE_MIDTERM/slide_images/
 
 # Claude Code 本地配置
 .claude/
