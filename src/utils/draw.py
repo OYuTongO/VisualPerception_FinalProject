@@ -7,45 +7,25 @@ import pygame
 from src.recognizer import HAND_CONNECTIONS
 
 
-BG_TOP = (8, 13, 32)
-BG_BOTTOM = (4, 25, 45)
-CYAN = (68, 220, 255)
-CYAN_DARK = (22, 92, 126)
-WHITE = (235, 245, 255)
+# ── palette ──────────────────────────────────────────────────────────────────
+WHITE        = (255, 255, 255)
+LIGHT_GRAY   = (240, 242, 245)
+MID_GRAY     = (180, 185, 195)
+DARK_TEXT    = (30,  35,  45)
+SUBTEXT      = (100, 108, 120)
+DIANA_BUBBLE = (220, 236, 255)      # light blue
+DIANA_BORDER = (160, 195, 245)
+USER_BUBBLE  = (255, 255, 255)      # white
+USER_BORDER  = (210, 215, 225)
+GOLD         = (255, 196, 48)
+GOLD_FILL    = (255, 218, 110)
+SLOT_PENDING = (210, 213, 220)
+SLOT_ACTIVE  = (90,  160, 255)
+ERROR_RED    = (230, 60,  60)
+CYAN         = (60,  160, 255)
 
 
-def draw_tech_background(screen, t):
-    width, height = screen.get_size()
-    for y in range(height):
-        ratio = y / max(height - 1, 1)
-        color = tuple(int(BG_TOP[i] * (1 - ratio) + BG_BOTTOM[i] * ratio) for i in range(3))
-        pygame.draw.line(screen, color, (0, y), (width, y))
-
-    offset = int((t * 36) % 48)
-    for x in range(-48, width + 48, 48):
-        alpha = 55 if (x // 48) % 2 == 0 else 28
-        line = pygame.Surface((1, height), pygame.SRCALPHA)
-        line.fill((*CYAN_DARK, alpha))
-        screen.blit(line, (x + offset, 0))
-    for y in range(-48, height + 48, 48):
-        alpha = 42 if (y // 48) % 2 == 0 else 24
-        line = pygame.Surface((width, 1), pygame.SRCALPHA)
-        line.fill((*CYAN_DARK, alpha))
-        screen.blit(line, (0, y + offset // 2))
-
-    scan_y = int((math.sin(t * 1.4) * 0.5 + 0.5) * height)
-    scan = pygame.Surface((width, 4), pygame.SRCALPHA)
-    scan.fill((80, 235, 255, 85))
-    screen.blit(scan, (0, scan_y))
-
-    for i in range(34):
-        px = int((i * 157 + t * 28) % width)
-        py = int((i * 83 + math.sin(t + i) * 18) % height)
-        radius = 1 + (i % 3)
-        pygame.draw.circle(screen, (60, 210, 255), (px, py), radius)
-
-
-def draw_round_rect(surface, rect, color, radius=18, border_color=None, border_width=0):
+def draw_round_rect(surface, rect, color, radius=12, border_color=None, border_width=0):
     pygame.draw.rect(surface, color, rect, border_radius=radius)
     if border_color and border_width:
         pygame.draw.rect(surface, border_color, rect, border_width, border_radius=radius)
@@ -54,23 +34,43 @@ def draw_round_rect(surface, rect, color, radius=18, border_color=None, border_w
 def load_avatar(path, size):
     avatar_path = Path(path)
     if not avatar_path.exists():
-        raise FileNotFoundError(f"Missing avatar file: {avatar_path}. Please place it under ./pnz/.")
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        pygame.draw.circle(surf, (180, 190, 200), (size // 2, size // 2), size // 2)
+        return surf
     image = pygame.image.load(str(avatar_path)).convert_alpha()
-    image = pygame.transform.smoothscale(image, (size, size))
-
+    # scale so the shorter side fills `size`, then centre-crop to square
+    iw, ih = image.get_size()
+    scale = size / min(iw, ih)
+    sw, sh = max(size, int(iw * scale)), max(size, int(ih * scale))
+    image = pygame.transform.smoothscale(image, (sw, sh))
+    cx, cy = (sw - size) // 2, (sh - size) // 2
+    # crop to top-third of image for portrait photos (captures face better)
+    if sh > sw:
+        cy = int(sh * 0.08)
+    cropped = pygame.Surface((size, size), pygame.SRCALPHA)
+    cropped.blit(image, (0, 0), (cx, cy, size, size))
     mask = pygame.Surface((size, size), pygame.SRCALPHA)
     pygame.draw.circle(mask, (255, 255, 255, 255), (size // 2, size // 2), size // 2)
-    rounded = pygame.Surface((size, size), pygame.SRCALPHA)
-    rounded.blit(image, (0, 0))
-    rounded.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-    return rounded
+    result = pygame.Surface((size, size), pygame.SRCALPHA)
+    result.blit(cropped, (0, 0))
+    result.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    return result
+
+
+def load_gesture_image(letter, gestures_dir, size):
+    """Load ASL gesture jpg from gestures_dir/{letter}_test.jpg, scaled to size."""
+    path = Path(gestures_dir) / f"{letter.upper()}_test.jpg"
+    if not path.exists():
+        return None
+    img = pygame.image.load(str(path)).convert()
+    return pygame.transform.smoothscale(img, (size, size))
 
 
 def frame_to_surface(frame, size):
     if frame is None:
-        surface = pygame.Surface(size)
-        surface.fill((12, 18, 32))
-        return surface
+        surf = pygame.Surface(size)
+        surf.fill((20, 20, 28))
+        return surf
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     rgb = cv2.flip(rgb, 1)
     rgb = cv2.resize(rgb, size)
@@ -80,19 +80,18 @@ def frame_to_surface(frame, size):
 def draw_hand_landmarks(surface, landmarks, size):
     if landmarks is None:
         return
-    width, height = size
-    points = [(int((1 - lm.x) * width), int(lm.y * height)) for lm in landmarks]
+    w, h = size
+    pts = [(int((1 - lm.x) * w), int(lm.y * h)) for lm in landmarks]
     for a, b in HAND_CONNECTIONS:
-        pygame.draw.line(surface, CYAN, points[a], points[b], 3)
-    for point in points:
-        pygame.draw.circle(surface, WHITE, point, 5)
-        pygame.draw.circle(surface, CYAN, point, 3)
+        pygame.draw.line(surface, CYAN, pts[a], pts[b], 2)
+    for p in pts:
+        pygame.draw.circle(surface, WHITE, p, 4)
+        pygame.draw.circle(surface, CYAN,  p, 2)
 
 
 def wrap_text(text, font, max_width):
     words = text.split(" ")
-    lines = []
-    current = ""
+    lines, current = [], ""
     for word in words:
         candidate = word if not current else f"{current} {word}"
         if font.size(candidate)[0] <= max_width:
@@ -106,7 +105,7 @@ def wrap_text(text, font, max_width):
     return lines or [""]
 
 
-def draw_wrapped_text(surface, text, font, color, rect, line_spacing=6):
+def draw_wrapped_text(surface, text, font, color, rect, line_spacing=5):
     y = rect.y
     for line in wrap_text(text, font, rect.width):
         rendered = font.render(line, True, color)
@@ -114,26 +113,44 @@ def draw_wrapped_text(surface, text, font, color, rect, line_spacing=6):
         y += rendered.get_height() + line_spacing
 
 
-def draw_progress_text(surface, text, completed_indices, current_index, font, rect):
-    x = rect.x
-    y = rect.y
-    max_x = rect.right
-    line_height = font.get_height() + 8
-    for index, char in enumerate(text):
-        if char == "\n":
-            x = rect.x
-            y += line_height
+def draw_letter_slots(surface, text, completed, current_index, font, rect, t):
+    """Draw per-letter slots. Returns dict {char_index: center_point}."""
+    centers = {}
+    slot_w, slot_h, gap = 46, 54, 8
+    x, y = rect.x, rect.y
+
+    for i, ch in enumerate(text):
+        if ch == " ":
+            x += 22
             continue
-        color = (170, 176, 190)
-        if index in completed_indices:
-            color = (255, 206, 76)
-        elif not char.isalpha():
-            color = (210, 216, 230)
-        rendered = font.render(char, True, color)
-        if x + rendered.get_width() > max_x and char != " ":
+        if not ch.isalpha():
+            rendered = font.render(ch, True, SUBTEXT)
+            surface.blit(rendered, (x, y + 12))
+            x += rendered.get_width() + 4
+            continue
+        if x + slot_w > rect.right:
             x = rect.x
-            y += line_height
-        surface.blit(rendered, (x, y))
-        if index == current_index:
-            pygame.draw.line(surface, CYAN, (x, y + rendered.get_height() + 2), (x + rendered.get_width(), y + rendered.get_height() + 2), 2)
-        x += rendered.get_width()
+            y += slot_h + 14
+
+        slot = pygame.Rect(x, y, slot_w, slot_h)
+        filled  = i in completed
+        active  = i == current_index
+
+        if filled:
+            draw_round_rect(surface, slot, GOLD_FILL, 10, GOLD, 2)
+            ch_color = (140, 90, 0)
+        elif active:
+            pulse = int((math.sin(t * 6) + 1) * 20)
+            fill_c = (200 + pulse, 230, 255)
+            draw_round_rect(surface, slot, fill_c, 10, SLOT_ACTIVE, 2)
+            ch_color = (20, 80, 200)
+        else:
+            draw_round_rect(surface, slot, LIGHT_GRAY, 10, SLOT_PENDING, 1)
+            ch_color = MID_GRAY
+
+        lbl = font.render(ch.upper(), True, ch_color)
+        surface.blit(lbl, lbl.get_rect(center=slot.center))
+        centers[i] = slot.center
+        x += slot_w + gap
+
+    return centers
