@@ -1,11 +1,9 @@
 BANNED_LETTERS = {"J", "Z"}
 
 DIALOGUE_SCRIPT = [
-    {"diana": "Hi X. I am Diana. Let us learn ASL.", "user": "HI DIANA"},
-    {"diana": "Great. Can you tell me your mood?", "user": "I AM FINE"},
-    {"diana": "Nice. Can you say you like ASL?", "user": "I LIKE ASL"},
-    {"diana": "Good work. Can you say this is fun?", "user": "THIS IS FUN"},
-    {"diana": "One more. Can you thank me?", "user": "THANK DIANA"},
+    {"diana": "Hi! I am Diana.", "user": "HI"},
+    {"diana": "Can you sign GOOD?", "user": "GOOD"},
+    {"diana": "Well done! Bye!", "user": "BYE"},
 ]
 
 
@@ -13,9 +11,9 @@ def validate_dialogue(script=DIALOGUE_SCRIPT):
     for row, item in enumerate(script):
         for speaker in ("diana", "user"):
             text = item[speaker].upper()
-            banned = sorted(BANNED_LETTERS.intersection(text))
+            banned = sorted(BANNED_LETTERS.intersection(set(text)))
             if banned:
-                raise ValueError(f"Dialogue row {row} speaker {speaker} contains banned letters: {banned}")
-        if not any(char.isalpha() for char in item["user"]):
-            raise ValueError(f"Dialogue row {row} has no signable user letters")
+                raise ValueError(f"Row {row} [{speaker}] contains banned letters: {banned}")
+        if not any(c.isalpha() for c in item["user"]):
+            raise ValueError(f"Row {row} has no signable letters in user text")
     return True

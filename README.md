@@ -8,8 +8,8 @@ A real-time American Sign Language (ASL) alphabet learning game powered by compu
 - Webcam
 - `model/hand_landmarker.task`
 - `model/asl_classifier.pkl`
-- `pnz/D.jpg` for Diana's avatar
-- `pnz/X.jpg` for the learner avatar
+- `game_module/D.jpg` for Diana's avatar
+- `game_module/X.jpg` for the learner avatar
 
 ## Setup
 
@@ -49,9 +49,11 @@ python -m src.game.main
 Controls:
 
 - Sign the highlighted ASL letter in front of the webcam.
-- Correct letters turn gold in the learner chat bubble.
-- Wrong letters show a red `×` and increase the error counter.
-- Completing each reply shows a green `✔`.
+- Correct letters enlarge on screen, glow, fly into the learner reply slot, then turn gold.
+- The learner avatar mirrors the current recognized letter with a gesture card.
+- Diana shows the current target gesture and demonstrates the correct letter after mistakes.
+- Wrong letters show a red feedback state, increase the error counter, and pause input until Diana's demo ends.
+- Completing each reply shows a green success state.
 - Press `Q` or `ESC` to quit.
 
 ## Development Progress
