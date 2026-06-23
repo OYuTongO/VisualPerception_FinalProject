@@ -34,3 +34,12 @@ CLAUDE_PRE_MIDTERM/slide_images/
 
 # Claude Code 本地配置
 .claude/
+
+# UE 游戏模块（独立 git 仓库，由其自身远程管理，外层仓库忽略）
+/UE/
+
+# 大体积素材与工具（本地保留，不入库；GitHub 单文件限 100MB）
+/GPT-SoVITS-v2pro-20250604/
+/diana_voice_raw/
+/diana_voice_raw2/
+/output/
